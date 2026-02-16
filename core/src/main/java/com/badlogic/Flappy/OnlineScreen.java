@@ -37,7 +37,7 @@ public class OnlineScreen implements Screen {
         this.game = game;
 
         // Arranco networking ya desde el constructor (así el lobby aparece rápido)
-        net = new NetClient(54555, 0);
+        net = new NetClient(4321, 0);
         net.start();
         net.discover();
     }
