@@ -275,6 +275,10 @@ public class PlayScreen implements Screen {
         // Fondo
         batch.draw(bg, 0, 0, Constants.VIRTUAL_WIDTH, Constants.VIRTUAL_HEIGHT);
 
+        font.draw(batch, "tick=" + net.lastTickApplied, 20, 240);
+        font.draw(batch, "oldDrop=" + net.droppedOldStates, 20, 210);
+        font.draw(batch, "missing=" + net.missingTicks, 20, 180);
+
         // Termos
         for (TermoPair t : termos) t.draw(batch);
 

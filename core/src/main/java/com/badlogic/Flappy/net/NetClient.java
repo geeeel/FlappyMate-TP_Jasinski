@@ -12,6 +12,11 @@ public final class NetClient {
     public volatile boolean matchStarted = false;
     public volatile boolean connected = false;
 
+    // en NetClient
+    public volatile int lastTickApplied = -1;
+    public volatile int droppedOldStates = 0;
+    public volatile int missingTicks = 0;
+
     public NetClient(int puertoServidor, int puertoLocal) {
         this.hilo = new HiloClienteFlappy(puertoServidor, puertoLocal, inbox);
     }
@@ -45,6 +50,7 @@ public final class NetClient {
     }
 
     public NetEvent poll() {
+
         NetEvent e = inbox.poll();
         if (e == null) return null;
 
@@ -63,7 +69,22 @@ public final class NetClient {
                 matchStarted = false;
                 break;
             case STATE:
-                lastState = e.state;
+                if (e.state != null) {
+                    int t = e.state.tick;
+
+                    if (lastTickApplied != -1 && t <= lastTickApplied) {
+                        droppedOldStates++;
+                        // DESCARTO por fuera de orden o repetido
+                        break;
+                    }
+
+                    if (lastTickApplied != -1 && t > lastTickApplied + 1) {
+                        missingTicks += (t - (lastTickApplied + 1));
+                    }
+
+                    lastTickApplied = t;
+                    lastState = e.state;
+                }
                 break;
             default:
                 break;
