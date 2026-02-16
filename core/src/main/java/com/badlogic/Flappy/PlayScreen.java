@@ -287,8 +287,17 @@ public class PlayScreen implements Screen {
             float y1 = (lastState != null) ? lastState.p1y : (Constants.VIRTUAL_HEIGHT / 2f);
             float y2 = (lastState != null) ? lastState.p2y : (Constants.VIRTUAL_HEIGHT / 2f);
 
+            // P1
+            batch.setColor(1f, 1f, 1f, 1f); // blanco normal
             batch.draw(mate.getTexture(), P1_X, y1);
+
+            // P2 (azulado por ejemplo)
+            batch.setColor(0.6f, 0.8f, 1f, 1f);
             batch.draw(mate.getTexture(), P2_X, y2);
+
+// volver a blanco para no teñir todo lo demás
+            batch.setColor(1f, 1f, 1f, 1f);
+
 
             // HUD
             font.draw(batch, "ONLINE", 20, Constants.VIRTUAL_HEIGHT - 20);
