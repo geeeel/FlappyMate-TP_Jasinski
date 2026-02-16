@@ -5,14 +5,14 @@ public final class NetClient {
     private final NetInbox inbox = new NetInbox();
     private final HiloClienteFlappy hilo;
 
-    // Estos dos los dejo por comodidad para el juego:
+    // Cache útil para el juego (ya filtrado/estable)
     public volatile StateSnapshot lastState = null;
     public volatile String lastLobbyRaw = null;
 
     public volatile boolean matchStarted = false;
     public volatile boolean connected = false;
 
-    // en NetClient
+    // Debug de sincronización
     public volatile int lastTickApplied = -1;
     public volatile int droppedOldStates = 0;
     public volatile int missingTicks = 0;
@@ -49,35 +49,42 @@ public final class NetClient {
         hilo.shutdown(reason);
     }
 
+    /**
+     * Devuelve el próximo evento "usable" por el juego.
+     * IMPORTANTE: Si llega un STATE viejo/out-of-order, se descarta aquí y NO se devuelve.
+     */
     public NetEvent poll() {
-
         NetEvent e = inbox.poll();
         if (e == null) return null;
 
-        // Actualizo “cache” simple
         switch (e.type) {
             case CONNECTED:
                 connected = true;
                 break;
+
             case LOBBY:
                 lastLobbyRaw = e.raw;
                 break;
+
             case MATCH_STARTED:
                 matchStarted = true;
                 break;
+
             case MATCH_ABORTED:
                 matchStarted = false;
                 break;
+
             case STATE:
                 if (e.state != null) {
                     int t = e.state.tick;
 
+                    // Fuera de orden / repetido -> descartar de verdad
                     if (lastTickApplied != -1 && t <= lastTickApplied) {
                         droppedOldStates++;
-                        // DESCARTO por fuera de orden o repetido
-                        break;
+                        return poll(); // <- clave: el juego NUNCA ve este STATE viejo
                     }
 
+                    // Huecos (pérdidas)
                     if (lastTickApplied != -1 && t > lastTickApplied + 1) {
                         missingTicks += (t - (lastTickApplied + 1));
                     }
@@ -86,6 +93,7 @@ public final class NetClient {
                     lastState = e.state;
                 }
                 break;
+
             default:
                 break;
         }
