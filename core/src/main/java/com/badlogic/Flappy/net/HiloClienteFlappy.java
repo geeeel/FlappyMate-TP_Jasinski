@@ -2,6 +2,7 @@ package com.badlogic.Flappy.net;
 
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Enumeration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class HiloClienteFlappy extends Thread {
@@ -248,11 +249,45 @@ public final class HiloClienteFlappy extends Thread {
     }
 
     private void sendToBroadcast(String msg, int port) {
+        byte[] data = msg.getBytes(StandardCharsets.UTF_8);
+
+        // 1) Siempre intento el global broadcast
         try {
-            InetAddress bcast = InetAddress.getByName("255.255.255.255");
-            sendTo(bcast, port, msg);
+            InetAddress global = InetAddress.getByName("255.255.255.255");
+            DatagramPacket p = new DatagramPacket(data, data.length, global, port);
+            socket.send(p);
+            inbox.push(NetEvent.info("DISCOVERY", "Broadcast -> 255.255.255.255:" + port));
         } catch (Exception e) {
-            inbox.push(NetEvent.info("SEND", "Fallo broadcast msg=" + msg));
+            inbox.push(NetEvent.info("DISCOVERY", "Falló 255.255.255.255: " + e.getMessage()));
+        }
+
+        // 2) Ahora mando a los broadcast reales de cada interfaz
+        try {
+            Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+            while (ifaces.hasMoreElements()) {
+                NetworkInterface ni = ifaces.nextElement();
+
+                // Evito interfaces apagadas/loopback/virtuales raras
+                if (!ni.isUp() || ni.isLoopback()) continue;
+
+                for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
+                    InetAddress bcast = ia.getBroadcast();
+                    if (bcast == null) continue;
+
+                    try {
+                        DatagramPacket p = new DatagramPacket(data, data.length, bcast, port);
+                        socket.send(p);
+                        inbox.push(NetEvent.info("DISCOVERY",
+                            "Broadcast -> " + bcast.getHostAddress() + ":" + port + " (" + ni.getDisplayName() + ")"));
+                    } catch (Exception ignored) {
+                        inbox.push(NetEvent.info("DISCOVERY",
+                            "Falló broadcast en " + ni.getDisplayName() + " bcast=" + bcast));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            inbox.push(NetEvent.info("DISCOVERY", "No pude enumerar interfaces: " + e.getMessage()));
         }
     }
+
 }
