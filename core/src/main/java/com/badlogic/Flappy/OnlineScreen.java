@@ -14,135 +14,136 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class OnlineScreen implements Screen {
 
-    private final Main game;
+    private final Main juego;
 
-    private OrthographicCamera camera;
+    private OrthographicCamera camara;
     private Viewport viewport;
-    private SpriteBatch batch;
-    private BitmapFont font;
+    private SpriteBatch lote;
+    private BitmapFont fuente;
 
-    private NetClient net;
+    private NetClient red;
 
-    // UI state
-    private String status = "Buscando servidor...";
-    private boolean readyMe = false;
+    // Estado de UI
+    private String estado = "Buscando servidor...";
+    private boolean listoYo = false;
 
-    private boolean readyP1 = false;
-    private boolean readyP2 = false;
+    private boolean listoP1 = false;
+    private boolean listoP2 = false;
 
-    private boolean serverFound = false;
-    private boolean connected = false;
+    private boolean servidorEncontrado = false;
+    private boolean conectado = false;
 
-    public OnlineScreen(Main game) {
-        this.game = game;
+    public OnlineScreen(Main juego) {
+        this.juego = juego;
 
-        // Arranco networking ya desde el constructor (así el lobby aparece rápido)
-        net = new NetClient(4321, 0);
-        net.start();
-        net.discover();
+        // Inicio networking desde el constructor (para que el lobby aparezca rápido)
+        red = new NetClient(4321, 0);
+        red.start();
+        red.discover();
     }
 
     @Override
     public void show() {
-        camera = new OrthographicCamera();
-        viewport = new FitViewport(Constants.VIRTUAL_WIDTH, Constants.VIRTUAL_HEIGHT, camera);
-        batch = new SpriteBatch();
-        font = new BitmapFont();
-        font.getData().setScale(2f);
+        camara = new OrthographicCamera();
+        viewport = new FitViewport(Constantes.VIRTUAL_WIDTH, Constantes.VIRTUAL_HEIGHT, camara);
+        lote = new SpriteBatch();
+
+        fuente = new BitmapFont();
+        fuente.getData().setScale(2f);
     }
 
     @Override
     public void render(float delta) {
 
         // 1) Consumir eventos de red
-        pollNetwork();
+        leerRed();
 
         // 2) Input
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             // volver al menú
-            if (net != null) net.disconnect();
-            game.setScreen(new MenuScreen(game));
+            if (red != null) red.disconnect();
+            juego.setScreen(new MenuScreen(juego));
             return;
         }
 
-        // Toggle ready con SPACE o click
+        // Toggle de listo con SPACE o click
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.justTouched()) {
-            if (connected) {
-                readyMe = !readyMe;
-                net.setReady(readyMe);
+            if (conectado) {
+                listoYo = !listoYo;
+                red.setReady(listoYo);
             }
         }
 
-        // Redibujar
-        Gdx.gl.glClearColor(0,0,0,1);
+        // 3) Dibujado
+        Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        lote.setProjectionMatrix(camara.combined);
+        lote.begin();
 
-        font.draw(batch, "ONLINE (LAN)", 150, 520);
+        fuente.draw(lote, "ONLINE (LAN)", 150, 520);
+        fuente.draw(lote, "Estado: " + estado, 50, 470);
 
-        font.draw(batch, "Estado: " + status, 50, 470);
+        fuente.draw(lote, "P1 READY: " + (listoP1 ? "SI" : "NO"), 50, 410);
+        fuente.draw(lote, "P2 READY: " + (listoP2 ? "SI" : "NO"), 50, 370);
 
-        font.draw(batch, "P1 READY: " + (readyP1 ? "SI" : "NO"), 50, 410);
-        font.draw(batch, "P2 READY: " + (readyP2 ? "SI" : "NO"), 50, 370);
-
-        if (!connected) {
-            font.draw(batch, "Esperando conexion...", 50, 310);
+        if (!conectado) {
+            fuente.draw(lote, "Esperando conexion...", 50, 310);
         } else {
-            font.draw(batch, "SPACE/click: Ready " + (readyMe ? "(ON)" : "(OFF)"), 50, 310);
+            fuente.draw(lote, "SPACE/click: Ready " + (listoYo ? "(ON)" : "(OFF)"), 50, 310);
         }
 
-        font.draw(batch, "ESC: volver", 50, 250);
+        fuente.draw(lote, "ESC: volver", 50, 250);
 
-        batch.end();
+        lote.end();
     }
 
-    private void pollNetwork() {
-        if (net == null) return;
+    private void leerRed() {
+        if (red == null) return;
 
-        NetEvent e;
-        while ((e = net.poll()) != null) {
-            switch (e.type) {
+        NetEvent evento;
+        while ((evento = red.poll()) != null) {
+
+            switch (evento.type) {
 
                 case SERVER_FOUND:
-                    serverFound = true;
-                    status = "Servidor encontrado (" + e.raw + "). Conectando...";
-                    // Auto-connect: para que funcione sin que usted haga nada
-                    net.connect();
+                    servidorEncontrado = true;
+                    estado = "Servidor encontrado (" + evento.raw + "). Conectando...";
+                    // Auto-connect
+                    red.connect();
                     break;
 
                 case CONNECTED:
-                    connected = true;
-                    status = "Conectado. Elija READY.";
+                    conectado = true;
+                    estado = "Conectado. Elija READY.";
                     break;
 
                 case LOBBY:
                     // LOBBY;READY_P1=0;READY_P2=1
-                    parseLobby(e.raw);
+                    parsearLobby(evento.raw);
                     break;
 
                 case MATCH_STARTED:
-                    status = "Partida iniciada!";
+                    estado = "Partida iniciada!";
                     // Cambio a PlayScreen en modo ONLINE
-                    game.setScreen(new PlayScreen(game, net));
+                    juego.setScreen(new PlayScreen(juego, red));
                     return;
 
                 case SERVER_ERROR:
-                    // SERVER_ERROR;code=...;detail=...
-                    if (e.detail != null) status = "Error: " + e.detail;
-                    else status = "Error: " + e.raw;
-                    // si fue abort, su server resetea lobby; yo también apago mi ready local
-                    readyMe = false;
+                    if (evento.detail != null) estado = "Error: " + evento.detail;
+                    else estado = "Error: " + evento.raw;
+
+                    // si el server resetea lobby, yo también apago mi ready local
+                    listoYo = false;
                     break;
 
                 case MATCH_ABORTED:
-                    status = "Partida abortada: " + e.detail;
-                    readyMe = false;
+                    estado = "Partida abortada: " + evento.detail;
+                    listoYo = false;
                     break;
 
                 case INFO:
-                    // si quiere logs, cámbielo a System.out.println
+                    // logs opcionales
                     break;
 
                 default:
@@ -150,18 +151,18 @@ public class OnlineScreen implements Screen {
             }
         }
 
-        if (!serverFound && "Buscando servidor...".equals(status)) {
-            // Opcional: reintento de discovery (no spameo, solo si quiere)
+        if (!servidorEncontrado && "Buscando servidor...".equals(estado)) {
+            // opcional: reintento de discovery
         }
     }
 
-    private void parseLobby(String raw) {
+    private void parsearLobby(String raw) {
         // Esperado: LOBBY;READY_P1=0;READY_P2=1
         try {
-            String[] parts = raw.split(";");
-            for (String p : parts) {
-                if (p.startsWith("READY_P1=")) readyP1 = p.endsWith("1");
-                if (p.startsWith("READY_P2=")) readyP2 = p.endsWith("1");
+            String[] partes = raw.split(";");
+            for (String p : partes) {
+                if (p.startsWith("READY_P1=")) listoP1 = p.endsWith("1");
+                if (p.startsWith("READY_P2=")) listoP2 = p.endsWith("1");
             }
         } catch (Exception ignored) {}
     }
@@ -173,8 +174,8 @@ public class OnlineScreen implements Screen {
 
     @Override
     public void dispose() {
-        if (net != null) net.disconnect();
-        if (batch != null) batch.dispose();
-        if (font != null) font.dispose();
+        if (red != null) red.disconnect();
+        if (lote != null) lote.dispose();
+        if (fuente != null) fuente.dispose();
     }
 }

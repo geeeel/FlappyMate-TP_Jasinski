@@ -12,13 +12,13 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-public class MenuScreen implements Screen {
+public class OpcionesScreen implements Screen {
 
     private final Main juego;
 
     private OrthographicCamera camara;
     private Viewport viewport;
-    private SpriteBatch lote; // batch
+    private SpriteBatch lote;
 
     private Texture fondo;
     private Texture piso;
@@ -26,20 +26,19 @@ public class MenuScreen implements Screen {
     private BitmapFont fuenteTitulo;
     private BitmapFont fuente;
 
-    private SimpleButton btnJugar;
-    private SimpleButton btnOnline;
-    private SimpleButton btnOpciones;
-    private SimpleButton btnSalir;
+    private SimpleButton btnMusica;
+    private SimpleButton btnSonido;
+    private SimpleButton btnVolver;
 
     private float pisoX1, pisoX2;
 
-    public MenuScreen(Main juego) {
+    public OpcionesScreen(Main juego) {
         this.juego = juego;
     }
 
     @Override
     public void show() {
-        ((Main) juego).reproducirMusicaMenu();
+        juego.reproducirMusicaMenu();
 
         camara = new OrthographicCamera();
         viewport = new FitViewport(Constantes.VIRTUAL_WIDTH, Constantes.VIRTUAL_HEIGHT, camara);
@@ -54,33 +53,50 @@ public class MenuScreen implements Screen {
         fuente = new BitmapFont();
         fuente.getData().setScale(2f);
 
-        float ancho = 280;
+        float ancho = 320;
         float alto = 70;
         float x = (Constantes.VIRTUAL_WIDTH - ancho) / 2f;
 
-        float yInicio = 460;
-        float separacion = 85;
-
-        btnJugar = new SimpleButton(x, yInicio, ancho, alto, "Jugar");
-        btnOnline = new SimpleButton(x, yInicio - separacion, ancho, alto, "Online");
-        btnOpciones = new SimpleButton(x, yInicio - separacion * 2, ancho, alto, "Opciones");
-        btnSalir = new SimpleButton(x, yInicio - separacion * 3, ancho, alto, "Salir");
+        btnMusica = new SimpleButton(x, 480, ancho, alto, "");
+        btnSonido = new SimpleButton(x, 390, ancho, alto, "");
+        btnVolver = new SimpleButton(x, 260, ancho, alto, "Volver");
 
         pisoX1 = 0;
         pisoX2 = piso.getWidth();
+
+        refrescarTextos();
+    }
+
+    private void refrescarTextos() {
+        // Recrea botones para actualizar el texto manteniendo posición y tamaño
+        btnMusica = new SimpleButton(
+            btnMusica.obtenerLimites().x,
+            btnMusica.obtenerLimites().y,
+            btnMusica.obtenerLimites().width,
+            btnMusica.obtenerLimites().height,
+            "Musica: " + (Config.musicEnabled ? "ON" : "OFF")
+        );
+
+        btnSonido = new SimpleButton(
+            btnSonido.obtenerLimites().x,
+            btnSonido.obtenerLimites().y,
+            btnSonido.obtenerLimites().width,
+            btnSonido.obtenerLimites().height,
+            "Sonido: " + (Config.soundEnabled ? "ON" : "OFF")
+        );
     }
 
     private boolean fueClickeado(SimpleButton boton) {
         if (!Gdx.input.justTouched()) return false;
 
         Vector3 v = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
-        viewport.unproject(v); // convierte coordenadas de pantalla a coordenadas del mundo
+        viewport.unproject(v);
 
         return boton.contiene(v.x, v.y);
     }
 
     private void actualizar(float dt) {
-        // Scroll del piso (para que el menú tenga movimiento)
+        // Scroll del piso
         float dx = Constantes.VELOCIDAD_MUNDO * dt * 0.6f;
         pisoX1 -= dx;
         pisoX2 -= dx;
@@ -88,18 +104,26 @@ public class MenuScreen implements Screen {
         if (pisoX1 + piso.getWidth() < 0) pisoX1 = pisoX2 + piso.getWidth();
         if (pisoX2 + piso.getWidth() < 0) pisoX2 = pisoX1 + piso.getWidth();
 
+        // ESC vuelve al menú
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            Gdx.app.exit();
+            juego.setScreen(new MenuScreen(juego));
         }
 
-        if (fueClickeado(btnJugar)) {
-            juego.setScreen(new PlayScreen(juego));
-        } else if (fueClickeado(btnOnline)) {
-            juego.setScreen(new OnlineScreen(juego));
-        } else if (fueClickeado(btnOpciones)) {
-            juego.setScreen(new OpcionesScreen(juego));
-        } else if (fueClickeado(btnSalir)) {
-            Gdx.app.exit();
+        // Clicks
+        if (fueClickeado(btnMusica)) {
+            Config.musicEnabled = !Config.musicEnabled;
+
+            // aplicar cambio instantáneo
+            juego.actualizarMusicaMenu();
+
+            refrescarTextos();
+
+        } else if (fueClickeado(btnSonido)) {
+            Config.soundEnabled = !Config.soundEnabled;
+            refrescarTextos();
+
+        } else if (fueClickeado(btnVolver)) {
+            juego.setScreen(new MenuScreen(juego));
         }
     }
 
@@ -117,12 +141,16 @@ public class MenuScreen implements Screen {
         lote.draw(piso, pisoX1, 0);
         lote.draw(piso, pisoX2, 0);
 
-        fuenteTitulo.draw(lote, "MATE FLAPPY", 120, 720);
+        fuenteTitulo.draw(lote, "OPCIONES", 140, 720);
 
-        btnJugar.dibujar(lote, fuente);
-        btnOnline.dibujar(lote, fuente);
-        btnOpciones.dibujar(lote, fuente);
-        btnSalir.dibujar(lote, fuente);
+        btnMusica.dibujar(lote, fuente);
+        btnSonido.dibujar(lote, fuente);
+        btnVolver.dibujar(lote, fuente);
+
+        // Texto de controles
+        fuente.draw(lote, "Controles:", 30, 200);
+        fuente.draw(lote, "- SPACE / Click: Saltar", 30, 160);
+        fuente.draw(lote, "- ESC: Volver", 30, 120);
 
         lote.end();
     }

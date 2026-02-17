@@ -19,134 +19,133 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class PlayScreen implements Screen {
 
-    private final Main game;
+    private final Main juego;
 
     // ONLINE opcional
-    private final NetClient net;
+    private final NetClient red;
     private final boolean online;
 
-    private OrthographicCamera camera;
+    private OrthographicCamera camara;
     private Viewport viewport;
-    private SpriteBatch batch;
+    private SpriteBatch lote;
 
-    private Texture bg;
-    private Texture ground;
-    private Texture termoTexture;
+    private Texture fondo;
+    private Texture piso;
+    private Texture texturaTermo;
 
-    private Sound sfxJump;
-    private Sound sfxHit;
-    private boolean playedHit = false;
+    private Sound sfxSalto;
+    private Sound sfxGolpe;
+    private boolean golpeReproducido = false;
 
-    private Mate mate;                 // lo uso como "asset holder" (texture/size)
-    private Array<TermoPair> termos;
+    private Mate mate;                 // lo usas como "asset holder" (textura/tamaño)
+    private Array<Termo> termos;
 
-    private float termoTimer = 0f;
-    private int score = 0;
+    private float temporizadorTermo = 0f;
+    private int puntaje = 0;
     private boolean gameOver = false;
 
-    private BitmapFont font;
+    private BitmapFont fuente;
 
-    private float groundX1 = 0;
-    private float groundX2;
+    private float pisoX1 = 0;
+    private float pisoX2;
 
     // ONLINE cache
-    private StateSnapshot lastState = null;
+    private StateSnapshot ultimoEstado = null;
 
     // Dibujo P1 y P2 con un pequeño offset en X para distinguirlos
     private static final float P1_X = 120f;
     private static final float P2_X = 160f;
 
-    // ====== OFFLINE ctor (igual que antes) ======
-    public PlayScreen(Main game) {
-        this.game = game;
-        this.net = null;
+    // ===== OFFLINE ctor =====
+    public PlayScreen(Main juego) {
+        this.juego = juego;
+        this.red = null;
         this.online = false;
     }
 
-    // ====== ONLINE ctor (nuevo) ======
-    public PlayScreen(Main game, NetClient net) {
-        this.game = game;
-        this.net = net;
+    // ===== ONLINE ctor =====
+    public PlayScreen(Main juego, NetClient red) {
+        this.juego = juego;
+        this.red = red;
         this.online = true;
     }
 
     @Override
     public void show() {
-        game.stopMenuMusic();
+        juego.detenerMusicaMenu();
 
-        camera = new OrthographicCamera();
-        viewport = new FitViewport(Constants.VIRTUAL_WIDTH, Constants.VIRTUAL_HEIGHT, camera);
-        batch = new SpriteBatch();
+        camara = new OrthographicCamera();
+        viewport = new FitViewport(Constantes.VIRTUAL_WIDTH, Constantes.VIRTUAL_HEIGHT, camara);
+        lote = new SpriteBatch();
 
-        bg = new Texture("bg.png");
-        ground = new Texture("ground.png");
-        termoTexture = new Texture("termo.png");
+        fondo = new Texture("bg.png");
+        piso = new Texture("ground.png");
+        texturaTermo = new Texture("termo.png");
 
         mate = new Mate();
         termos = new Array<>();
 
-        sfxJump = Gdx.audio.newSound(Gdx.files.internal("mate_sound.mp3"));
-        sfxHit  = Gdx.audio.newSound(Gdx.files.internal("bruh.mp3"));
+        sfxSalto = Gdx.audio.newSound(Gdx.files.internal("mate_sound.mp3"));
+        sfxGolpe  = Gdx.audio.newSound(Gdx.files.internal("bruh.mp3"));
 
-        groundX1 = 0;
-        groundX2 = ground.getWidth();
+        pisoX1 = 0;
+        pisoX2 = piso.getWidth();
 
-        font = new BitmapFont();
-        font.getData().setScale(2f);
+        fuente = new BitmapFont();
+        fuente.getData().setScale(2f);
 
         if (online) {
             // En online no reseteo la partida local; espero STATE
-            score = 0;
+            puntaje = 0;
             gameOver = false;
         }
     }
 
     // ===== OFFLINE =====
-    private void spawnTermos() {
-        float y = MathUtils.random(Constants.TERMO_MIN_Y, Constants.TERMO_MAX_Y);
-        termos.add(new TermoPair(termoTexture, Constants.VIRTUAL_WIDTH + 40, y));
+    private void spawnearTermos() {
+        float y = MathUtils.random(Constantes.TERMO_MIN_Y, Constantes.TERMO_MAX_Y);
+        termos.add(new Termo(texturaTermo, Constantes.VIRTUAL_WIDTH + 40, y));
     }
 
-    private void setGameOver() {
+    private void activarGameOver() {
         if (!gameOver) {
             gameOver = true;
-            if (!playedHit && Settings.soundEnabled) {
-                sfxHit.play(0.9f);
-                playedHit = true;
+            if (!golpeReproducido && Config.soundEnabled) {
+                sfxGolpe.play(0.9f);
+                golpeReproducido = true;
             }
         }
     }
 
-    private void resetGame() {
-        playedHit = false;
+    private void reiniciarJuego() {
+        golpeReproducido = false;
         termos.clear();
-        mate.reset();
-        score = 0;
-        termoTimer = 0f;
+        mate.reiniciar();
+        puntaje = 0;
+        temporizadorTermo = 0f;
         gameOver = false;
-        groundX1 = 0;
-        groundX2 = ground.getWidth();
+        pisoX1 = 0;
+        pisoX2 = piso.getWidth();
     }
 
     // ===== ONLINE: consumir red =====
-    private void pollNetworkOnline() {
-        if (net == null) return;
+    private void leerRedOnline() {
+        if (red == null) return;
 
         NetEvent e;
-        while ((e = net.poll()) != null) {
+        while ((e = red.poll()) != null) {
             switch (e.type) {
 
                 case STATE:
-                    lastState = e.state;
+                    ultimoEstado = e.state;
                     break;
 
                 case SERVER_ERROR:
-                    // si el server aborta/timeout/leave, corto y vuelvo al lobby online
-                    game.setScreen(new OnlineScreen(game));
+                    juego.setScreen(new OnlineScreen(juego));
                     return;
 
                 case MATCH_ABORTED:
-                    game.setScreen(new OnlineScreen(game));
+                    juego.setScreen(new OnlineScreen(juego));
                     return;
 
                 default:
@@ -156,67 +155,66 @@ public class PlayScreen implements Screen {
     }
 
     // ===== ONLINE: aplicar snapshot a objetos de render =====
-    private void applyStateToRender(StateSnapshot s) {
+    private void aplicarEstadoARender(StateSnapshot s) {
         if (s == null) return;
 
-        // Reconstruyo termos desde snapshot (simple y robusto)
+        // Reconstruyo termos desde snapshot
         termos.clear();
         for (int i = 0; i < s.termoX.length; i++) {
             float x = s.termoX[i];
             float gapY = s.termoGap[i];
-            termos.add(new TermoPair(termoTexture, x, gapY));
+            termos.add(new Termo(texturaTermo, x, gapY));
         }
 
-        // Score: en su server hay score1/score2
-        // Yo muestro score del "mejor" como fallback si usted no identifica jugador local.
-        score = Math.max(s.p1score, s.p2score);
+        // Puntaje: muestro el mayor como fallback
+        puntaje = Math.max(s.p1score, s.p2score);
 
-        // GameOver local: si ambos muertos (o ninguno state aún)
-        boolean p1Alive = (s.p1alive == 1);
-        boolean p2Alive = (s.p2alive == 1);
-        gameOver = (!p1Alive && !p2Alive);
+        // GameOver si ambos muertos
+        boolean p1Vivo = (s.p1alive == 1);
+        boolean p2Vivo = (s.p2alive == 1);
+        gameOver = (!p1Vivo && !p2Vivo);
     }
 
-    private void update(float dt) {
+    private void actualizar(float dt) {
 
         // Volver al menú
         if (Gdx.input.isKeyJustPressed(Input.Keys.M)) {
-            if (online && net != null) net.disconnect();
-            game.setScreen(new MenuScreen(game));
+            if (online && red != null) red.disconnect();
+            juego.setScreen(new MenuScreen(juego));
             return;
         }
 
         if (online) {
-            // ONLINE: no simulo mundo. Solo input -> net.sendJump()
-            pollNetworkOnline();
+            // ONLINE: no simulo mundo. Solo input -> red.sendJump()
+            leerRedOnline();
 
             if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.justTouched()) {
-                if (net != null) net.sendJump();
-                if (Settings.soundEnabled) sfxJump.play(0.8f);
+                if (red != null) red.sendJump();
+                if (Config.soundEnabled) sfxSalto.play(0.8f);
             }
 
-            // Aplicar snapshot
-            applyStateToRender(lastState);
+            // Aplicar snapshot a render
+            aplicarEstadoARender(ultimoEstado);
 
-            // Ground scroll visual local (no afecta la sim)
-            float dx = Constants.WORLD_SPEED * dt;
-            groundX1 -= dx;
-            groundX2 -= dx;
-            if (groundX1 + ground.getWidth() < 0) groundX1 = groundX2 + ground.getWidth();
-            if (groundX2 + ground.getWidth() < 0) groundX2 = groundX1 + ground.getWidth();
+            // Scroll visual local del piso
+            float dx = Constantes.VELOCIDAD_MUNDO * dt;
+            pisoX1 -= dx;
+            pisoX2 -= dx;
+            if (pisoX1 + piso.getWidth() < 0) pisoX1 = pisoX2 + piso.getWidth();
+            if (pisoX2 + piso.getWidth() < 0) pisoX2 = pisoX1 + piso.getWidth();
 
             return;
         }
 
-        // ===== OFFLINE (su lógica original) =====
+        // ===== OFFLINE =====
 
         // Saltar / Reiniciar
         if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.justTouched()) {
             if (gameOver) {
-                resetGame();
+                reiniciarJuego();
             } else {
-                mate.jump();
-                if (Settings.soundEnabled) sfxJump.play(0.8f);
+                mate.saltar();
+                if (Config.soundEnabled) sfxSalto.play(0.8f);
             }
         }
 
@@ -224,39 +222,39 @@ public class PlayScreen implements Screen {
         if (gameOver) return;
 
         // Física del mate
-        mate.update(dt);
+        mate.actualizar(dt);
 
-        // Spawn termos
-        termoTimer += dt;
-        if (termoTimer >= Constants.TERMO_SPAWN_TIME) {
-            termoTimer = 0f;
-            spawnTermos();
+        // Spawn termos por timer
+        temporizadorTermo += dt;
+        if (temporizadorTermo >= Constantes.TIEMPO_SPAWN_TERMO) {
+            temporizadorTermo = 0f;
+            spawnearTermos();
         }
 
         // Update termos + score + remove
         for (int i = termos.size - 1; i >= 0; i--) {
-            TermoPair t = termos.get(i);
-            t.update(dt);
+            Termo t = termos.get(i);
+            t.actualizar(dt);
 
-            if (t.shouldCountScore(mate.getX())) score++;
-            if (t.isOffscreen()) termos.removeIndex(i);
+            if (t.debeSumarPuntaje(mate.obtenerX())) puntaje++;
+            if (t.estaFueraDePantalla()) termos.removeIndex(i);
         }
 
-        // Ground scroll
-        float dx = Constants.WORLD_SPEED * dt;
-        groundX1 -= dx;
-        groundX2 -= dx;
-        if (groundX1 + ground.getWidth() < 0) groundX1 = groundX2 + ground.getWidth();
-        if (groundX2 + ground.getWidth() < 0) groundX2 = groundX1 + ground.getWidth();
+        // Scroll del piso
+        float dx = Constantes.VELOCIDAD_MUNDO * dt;
+        pisoX1 -= dx;
+        pisoX2 -= dx;
+        if (pisoX1 + piso.getWidth() < 0) pisoX1 = pisoX2 + piso.getWidth();
+        if (pisoX2 + piso.getWidth() < 0) pisoX2 = pisoX1 + piso.getWidth();
 
-        // Colision: piso / techo
-        if (mate.getY() <= Constants.GROUND_HEIGHT) setGameOver();
-        if (mate.getY() + mate.getHeight() >= Constants.VIRTUAL_HEIGHT) setGameOver();
+        // Colisión: piso / techo
+        if (mate.obtenerY() <= Constantes.ALTURA_PISO) activarGameOver();
+        if (mate.obtenerY() + mate.obtenerAlto() >= Constantes.VIRTUAL_HEIGHT) activarGameOver();
 
-        // Collisions: termos
-        for (TermoPair t : termos) {
-            if (t.getBottomBounds().overlaps(mate.getBounds()) || t.getTopBounds().overlaps(mate.getBounds())) {
-                setGameOver();
+        // Colisión: termos
+        for (Termo t : termos) {
+            if (t.obtenerLimitesInferior().overlaps(mate.obtenerLimites()) || t.obtenerLimitesSuperior().overlaps(mate.obtenerLimites())) {
+                activarGameOver();
                 break;
             }
         }
@@ -264,76 +262,75 @@ public class PlayScreen implements Screen {
 
     @Override
     public void render(float delta) {
-        update(delta);
+        actualizar(delta);
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        lote.setProjectionMatrix(camara.combined);
+        lote.begin();
 
         // Fondo
-        batch.draw(bg, 0, 0, Constants.VIRTUAL_WIDTH, Constants.VIRTUAL_HEIGHT);
+        lote.draw(fondo, 0, 0, Constantes.VIRTUAL_WIDTH, Constantes.VIRTUAL_HEIGHT);
 
-        font.draw(batch, "tick=" + net.lastTickApplied, 20, 240);
-        font.draw(batch, "oldDrop=" + net.droppedOldStates, 20, 210);
-        font.draw(batch, "missing=" + net.missingTicks, 20, 180);
+        // Debug de red (ojo: esto rompe offline si red es null, te lo marco abajo)
+        fuente.draw(lote, "tick=" + red.lastTickApplied, 20, 240);
+        fuente.draw(lote, "oldDrop=" + red.droppedOldStates, 20, 210);
+        fuente.draw(lote, "missing=" + red.missingTicks, 20, 180);
 
         // Termos
-        for (TermoPair t : termos) t.draw(batch);
+        for (Termo t : termos) t.dibujar(lote);
 
         // Piso
-        batch.draw(ground, groundX1, 0);
-        batch.draw(ground, groundX2, 0);
+        lote.draw(piso, pisoX1, 0);
+        lote.draw(piso, pisoX2, 0);
 
         if (online) {
-            // ONLINE: dibujo P1 y P2 en base a lastState (si todavía no llegó, dibujo centrado)
-            float y1 = (lastState != null) ? lastState.p1y : (Constants.VIRTUAL_HEIGHT / 2f);
-            float y2 = (lastState != null) ? lastState.p2y : (Constants.VIRTUAL_HEIGHT / 2f);
+            float y1 = (ultimoEstado != null) ? ultimoEstado.p1y : (Constantes.VIRTUAL_HEIGHT / 2f);
+            float y2 = (ultimoEstado != null) ? ultimoEstado.p2y : (Constantes.VIRTUAL_HEIGHT / 2f);
 
-            // P1
-            batch.setColor(1f, 1f, 1f, 1f); // blanco normal
-            batch.draw(mate.getTexture(), P1_X, y1);
+            // P1 (blanco)
+            lote.setColor(1f, 1f, 1f, 1f);
+            lote.draw(mate.obtenerTextura(), P1_X, y1);
 
-            // P2 (azulado por ejemplo)
-            batch.setColor(0.6f, 0.8f, 1f, 1f);
-            batch.draw(mate.getTexture(), P2_X, y2);
+            // P2 (tinte azulado)
+            lote.setColor(0.6f, 0.8f, 1f, 1f);
+            lote.draw(mate.obtenerTextura(), P2_X, y2);
 
-// volver a blanco para no teñir todo lo demás
-            batch.setColor(1f, 1f, 1f, 1f);
-
+            // volver a blanco
+            lote.setColor(1f, 1f, 1f, 1f);
 
             // HUD
-            font.draw(batch, "ONLINE", 20, Constants.VIRTUAL_HEIGHT - 20);
-            font.draw(batch, "Score: " + score, 20, Constants.VIRTUAL_HEIGHT - 60);
+            fuente.draw(lote, "ONLINE", 20, Constantes.VIRTUAL_HEIGHT - 20);
+            fuente.draw(lote, "Score: " + puntaje, 20, Constantes.VIRTUAL_HEIGHT - 60);
 
-            if (lastState == null) {
-                font.draw(batch, "Esperando STATE...", 120, 450);
+            if (ultimoEstado == null) {
+                fuente.draw(lote, "Esperando STATE...", 120, 450);
             } else {
-                if (lastState.p1alive == 0) font.draw(batch, "P1 DEAD", 20, 420);
-                if (lastState.p2alive == 0) font.draw(batch, "P2 DEAD", 20, 380);
+                if (ultimoEstado.p1alive == 0) fuente.draw(lote, "P1 DEAD", 20, 420);
+                if (ultimoEstado.p2alive == 0) fuente.draw(lote, "P2 DEAD", 20, 380);
             }
 
-            font.draw(batch, "SPACE/Tap: jump", 20, 320);
-            font.draw(batch, "M: volver al menu", 20, 280);
+            fuente.draw(lote, "SPACE/Tap: jump", 20, 320);
+            fuente.draw(lote, "M: volver al menu", 20, 280);
 
-            batch.end();
+            lote.end();
             return;
         }
 
         // OFFLINE: Mate
-        batch.draw(mate.getTexture(), mate.getX(), mate.getY());
+        lote.draw(mate.obtenerTextura(), mate.obtenerX(), mate.obtenerY());
 
         // HUD
-        font.draw(batch, "Score: " + score, 20, Constants.VIRTUAL_HEIGHT - 20);
+        fuente.draw(lote, "Score: " + puntaje, 20, Constantes.VIRTUAL_HEIGHT - 20);
 
         if (gameOver) {
-            font.draw(batch, "GAME OVER", 150, 450);
-            font.draw(batch, "SPACE / Tap: restart", 90, 400);
-            font.draw(batch, "M: volver al menu", 120, 350);
+            fuente.draw(lote, "GAME OVER", 150, 450);
+            fuente.draw(lote, "SPACE / Tap: restart", 90, 400);
+            fuente.draw(lote, "M: volver al menu", 120, 350);
         }
 
-        batch.end();
+        lote.end();
     }
 
     @Override public void resize(int width, int height) { viewport.update(width, height, true); }
@@ -343,15 +340,15 @@ public class PlayScreen implements Screen {
 
     @Override
     public void dispose() {
-        if (online && net != null) net.disconnect();
+        if (online && red != null) red.disconnect();
 
-        if (batch != null) batch.dispose();
-        if (sfxJump != null) sfxJump.dispose();
-        if (sfxHit != null) sfxHit.dispose();
-        if (bg != null) bg.dispose();
-        if (ground != null) ground.dispose();
-        if (termoTexture != null) termoTexture.dispose();
-        if (mate != null) mate.dispose();
-        if (font != null) font.dispose();
+        if (lote != null) lote.dispose();
+        if (sfxSalto != null) sfxSalto.dispose();
+        if (sfxGolpe != null) sfxGolpe.dispose();
+        if (fondo != null) fondo.dispose();
+        if (piso != null) piso.dispose();
+        if (texturaTermo != null) texturaTermo.dispose();
+        if (mate != null) mate.destruir();
+        if (fuente != null) fuente.dispose();
     }
 }

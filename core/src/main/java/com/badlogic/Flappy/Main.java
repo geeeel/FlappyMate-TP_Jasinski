@@ -6,41 +6,50 @@ import com.badlogic.gdx.audio.Music;
 
 public class Main extends Game {
 
-    private Music menuMusic;
+    private Music musicaMenu;
 
     @Override
     public void create() {
-        menuMusic = Gdx.audio.newMusic(Gdx.files.internal("jurabastu.mp3"));
-        menuMusic.setLooping(true);
-        menuMusic.setVolume(0.5f);
 
-        playMenuMusic();
+        // Cargar música
+        musicaMenu = Gdx.audio.newMusic(Gdx.files.internal("jurabastu.mp3"));
+        musicaMenu.setLooping(true);
+        musicaMenu.setVolume(0.5f);
+
+        reproducirMusicaMenu();
+
+        // Pantalla inicial
         setScreen(new MenuScreen(this));
     }
 
-    public void playMenuMusic() {
-        if (!Settings.musicEnabled) return;
-        if (menuMusic != null && !menuMusic.isPlaying()) menuMusic.play();
+    public void reproducirMusicaMenu() {
+        if (!Config.musicEnabled) return;
+
+        if (musicaMenu != null && !musicaMenu.isPlaying())
+            musicaMenu.play();
     }
 
-    public void pauseMenuMusic() {
-        if (menuMusic != null && menuMusic.isPlaying()) menuMusic.pause();
+    public void pausarMusicaMenu() {
+        if (musicaMenu != null && musicaMenu.isPlaying())
+            musicaMenu.pause();
     }
 
-    public void stopMenuMusic() {
-        if (menuMusic != null) menuMusic.stop();
+    public void detenerMusicaMenu() {
+        if (musicaMenu != null)
+            musicaMenu.stop();
     }
 
-    public void refreshMenuMusic() {
-        if (Settings.musicEnabled) playMenuMusic();
-        else {
-            pauseMenuMusic();
-        }
+    public void actualizarMusicaMenu() {
+        if (Config.musicEnabled)
+            reproducirMusicaMenu();
+        else
+            pausarMusicaMenu();
     }
 
     @Override
     public void dispose() {
         super.dispose();
-        if (menuMusic != null) menuMusic.dispose();
+        if (musicaMenu != null)
+            musicaMenu.dispose();
     }
 }

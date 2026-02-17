@@ -7,65 +7,67 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 
 public class SimpleButton {
-    private static Texture whitePixel; // 1x1 blanco generado
 
-    private final Rectangle bounds;
-    private final String text;
+    private static Texture pixelBlanco; // textura blanca 1x1 generada
 
-    public SimpleButton(float x, float y, float w, float h, String text) {
-        this.bounds = new Rectangle(x, y, w, h);
-        this.text = text;
+    private final Rectangle limites;
+    private final String texto;
 
-        if (whitePixel == null) {
-            // Generamos textura blanca 1x1 sin assets externos
-            com.badlogic.gdx.graphics.Pixmap pm = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-            pm.setColor(1,1,1,1);
+    public SimpleButton(float x, float y, float ancho, float alto, String texto) {
+        this.limites = new Rectangle(x, y, ancho, alto);
+        this.texto = texto;
+
+        if (pixelBlanco == null) {
+            // Genera una textura 1x1 blanca sin depender de archivos
+            com.badlogic.gdx.graphics.Pixmap pm =
+                new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+
+            pm.setColor(1, 1, 1, 1);
             pm.fill();
-            whitePixel = new Texture(pm);
+
+            pixelBlanco = new Texture(pm);
             pm.dispose();
         }
     }
 
-    public void draw(SpriteBatch batch, BitmapFont font) {
-        // Fondo del botón (gris)
+    public void dibujar(SpriteBatch batch, BitmapFont fuente) {
+        // Fondo del botón (gris oscuro semitransparente)
         batch.setColor(0.15f, 0.15f, 0.15f, 0.85f);
-        batch.draw(whitePixel, bounds.x, bounds.y, bounds.width, bounds.height);
+        batch.draw(pixelBlanco, limites.x, limites.y, limites.width, limites.height);
 
-        // Borde
+        // Borde (blanco)
         batch.setColor(1, 1, 1, 0.9f);
-        batch.draw(whitePixel, bounds.x, bounds.y, bounds.width, 2);
-        batch.draw(whitePixel, bounds.x, bounds.y + bounds.height - 2, bounds.width, 2);
-        batch.draw(whitePixel, bounds.x, bounds.y, 2, bounds.height);
-        batch.draw(whitePixel, bounds.x + bounds.width - 2, bounds.y, 2, bounds.height);
+        batch.draw(pixelBlanco, limites.x, limites.y, limites.width, 2);
+        batch.draw(pixelBlanco, limites.x, limites.y + limites.height - 2, limites.width, 2);
+        batch.draw(pixelBlanco, limites.x, limites.y, 2, limites.height);
+        batch.draw(pixelBlanco, limites.x + limites.width - 2, limites.y, 2, limites.height);
 
         // Texto
         batch.setColor(1, 1, 1, 1);
-        float textX = bounds.x + 20;
-        float textY = bounds.y + bounds.height * 0.65f;
-        font.draw(batch, text, textX, textY);
+        float textoX = limites.x + 20;
+        float textoY = limites.y + limites.height * 0.65f;
+        fuente.draw(batch, texto, textoX, textoY);
     }
 
-    public boolean justClicked() {
+    public boolean fueClickeadoDirecto() {
         if (!Gdx.input.justTouched()) return false;
 
         float x = Gdx.input.getX();
-        float y = Gdx.graphics.getHeight() - Gdx.input.getY(); // invert Y (screen coords -> world-ish)
+        float y = Gdx.graphics.getHeight() - Gdx.input.getY(); // invierte Y
 
-        // Como usamos FitViewport, mejor detectar con viewport luego.
-        // En Menu/Options lo hacemos con viewport.unproject (ver abajo).
-        // Acá queda por compatibilidad si lo quisieras usar “raw”.
-        return bounds.contains(x, y);
+        // Esto NO considera viewport/unproject: sirve solo si tu mundo coincide con pantalla.
+        return limites.contains(x, y);
     }
 
-    public boolean contains(float x, float y) {
-        return bounds.contains(x, y);
+    public boolean contiene(float x, float y) {
+        return limites.contains(x, y);
     }
 
-    public Rectangle getBounds() {
-        return bounds;
+    public Rectangle obtenerLimites() {
+        return limites;
     }
 
-    public String getText() {
-        return text;
+    public String obtenerTexto() {
+        return texto;
     }
 }
